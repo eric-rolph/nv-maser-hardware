@@ -1,6 +1,6 @@
 # AGENTS.md — NV Maser Hardware Build
 
-> Companion hardware repo for the [`nv-maser-twin`](https://github.com/ericrobinson-dev/nv-maser-twin) digital twin.
+> Companion hardware repo for the [`nv-maser-twin`](https://github.com/eric-rolph/nv-maser-twin) digital twin.
 
 ---
 
@@ -123,5 +123,5 @@ This repo covers the **physical construction** of a room-temperature NV diamond 
 
 | Repo | Purpose |
 |------|---------|
-| [`nv-maser-twin`](https://github.com/ericrobinson-dev/nv-maser-twin) | Digital twin: physics simulation, ML controller, validation |
+| [`nv-maser-twin`](https://github.com/eric-rolph/nv-maser-twin) | Digital twin: physics simulation, ML controller, validation |
 | This repo | Physical hardware build |

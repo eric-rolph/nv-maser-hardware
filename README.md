@@ -2,7 +2,7 @@
 
 Physical implementation of a room-temperature **Nitrogen-Vacancy (NV) center diamond maser** with active magnetic shimming.
 
-> **Digital twin companion**: Simulation, ML controller, and physics validation live in → [`nv-maser-twin`](https://github.com/ericrobinson-dev/nv-maser-twin).  
+> **Digital twin companion**: Simulation, ML controller, and physics validation live in → [`nv-maser-twin`](https://github.com/eric-rolph/nv-maser-twin).  
 > That repo defines the target specifications; this repo implements them in hardware.
 
 ---
@@ -190,7 +190,7 @@ When hardware measurements are available, the digital twin can be re-trained on 
 
 ```bash
 # Clone
-git clone https://github.com/ericrobinson-dev/nv-maser-hardware.git
+git clone https://github.com/eric-rolph/nv-maser-hardware.git
 cd nv-maser-hardware
 
 # Initialize git
