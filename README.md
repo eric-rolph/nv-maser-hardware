@@ -1,39 +1,83 @@
-# NV Maser "Tricorder" — Hardware Build
+# NV Maser "Tricorder" — Handheld MRI Probe Hardware
 
-Physical implementation of a room-temperature **Nitrogen-Vacancy (NV) center diamond maser** with active magnetic shimming.
+Physical implementation of a **handheld, maser-enhanced medical imaging probe** — a room-temperature NV-diamond maser combined with a single-sided permanent magnet, producing MRI-contrast tissue images in an ultrasound-like form factor.
 
 > **Digital twin companion**: Simulation, ML controller, and physics validation live in → [`nv-maser-twin`](https://github.com/eric-rolph/nv-maser-twin).  
-> That repo defines the target specifications; this repo implements them in hardware.
+> The design review lives at → `nv-maser-twin/docs/research/handheld-maser-probe-architecture.md`
+
+---
+
+## Product Vision
+
+**"MRI contrast in the palm of your hand."**
+
+A handheld probe placed on the patient's body — like an ultrasound transducer — produces tissue-contrast images (T1, T2, proton density) within 30–120 seconds on a connected tablet. No bore, no shielded room, no cryogenics. Designed for emergency medical triage: hemorrhage detection, fracture assessment, compartment syndrome, tissue characterization.
 
 ---
 
 ## System Overview
 
-A functioning NV diamond maser requires five integrated subsystems:
+The device consists of a **handheld probe** connected by cable to a **tablet** (with optional cloud processing). The probe contains two magnet systems: a single-sided imaging magnet and the NV maser module.
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        NV DIAMOND MASER                         │
-│                                                                  │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │   HALBACH    │  │  MICROWAVE   │  │    OPTICAL PUMP      │   │
-│  │   MAGNET     │→ │  CAVITY      │← │    (532 nm laser)    │   │
-│  │   (50 mT)   │  │  (TE₀₁₁)    │  │                      │   │
-│  └──────┬──────┘  └──────┬───────┘  └──────────────────────┘   │
-│         │                │                                       │
-│  ┌──────▼──────┐  ┌──────▼───────┐  ┌──────────────────────┐   │
-│  │   ACTIVE     │  │  READOUT     │  │    CONTROL           │   │
-│  │   SHIMMING   │  │  & SIGNAL    │  │    ELECTRONICS       │   │
-│  │   (8 coils)  │  │  CHAIN       │  │    (MCU + DAC/ADC)   │   │
-│  └─────────────┘  └──────────────┘  └──────────────────────┘   │
-└──────────────────────────────────────────────────────────────────┘
+┌───────────── PROBE HEAD (< 1.5 kg) ──────────────────────┐
+│                                                            │
+│  ┌─── Maser Module (~50 mm cube) ─────────────────────┐   │
+│  │  Mini Halbach (50 mT, 14 mm bore)                   │   │
+│  │  NV diamond + TE₀₁₁ microwave cavity                │   │
+│  │  532 nm DPSS laser (2W) + optics                     │   │
+│  │  8 shimming coils + control MCU                      │   │
+│  │  Up-conversion mixer (2 MHz → 1.47 GHz)              │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                            │
+│  ┌─── Single-Sided Imaging Magnet ────────────────────┐   │
+│  │  Sweet-spot barrel array (NdFeB N52)                │   │
+│  │  B₀ = 50 mT at 20 mm depth sweet spot              │   │
+│  │  Built-in gradient ~5-15 T/m (depth encoding)       │   │
+│  │  Lateral gradient coils (2D in-plane encoding)      │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                            │
+│  ┌─── Patient-Facing RF Coil ─────────────────────────┐   │
+│  │  Flat spiral surface coil (30 mm dia, 5 turns)      │   │
+│  │  T/R switch + matching network                      │   │
+│  │  Optional Peltier cooler (→ 200 K for SNR boost)    │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                            │
+│  ┌─── Probe Electronics ──────────────────────────────┐   │
+│  │  RF transmitter (~10 W peak), maser control MCU     │   │
+│  │  ADC, pulse sequence controller                     │   │
+│  └─────────────────────────────────────────────────────┘   │
+└──────────────────────────┬─────────────────────────────────┘
+                           │ USB-C cable
+                    ┌──────▼──────┐
+                    │   TABLET    │ → App: scan, reconstruct, AI assist
+                    └──────┬──────┘
+                           │ WiFi (optional)
+                    ┌──────▼──────┐
+                    │    CLOUD    │ → ML recon, AI diagnostics, remote review
+                    └─────────────┘
 ```
 
 ---
 
-## Target Specifications (from Digital Twin)
+## Target Specifications
 
-These specs are derived from the simulation and published literature:
+### Probe-Level Targets
+
+| Parameter | Target | Rationale |
+|---|---|---|
+| **Probe weight** | < 1.5 kg | One-hand operation |
+| **Probe dimensions** | ~8 × 8 × 12 cm | Ultrasound-transducer size class |
+| **Imaging depth** | 5–25 mm (diagnostic to 15 mm) | Subcutaneous tissue, tendons, bone interface |
+| **Lateral FOV** | 3–8 cm | Region of clinical interest |
+| **Resolution** | 1–3 mm in-plane, 1–5 mm depth | Hemorrhage, fracture, edema detection |
+| **Acquisition time** | 15–120 s per view | Emergency triage pace |
+| **Contrast** | T1, T2, proton density | Tissue typing (fluid vs. solid) |
+| **Power** | < 100 W total | Battery-operable |
+| **Connectivity** | USB-C to tablet | Standard clinical workflow |
+| **Cryogenics** | None | Room-temperature maser advantage |
+
+### Maser Module Specs (from Digital Twin)
 
 | Parameter | Target | Source |
 |---|---|---|
@@ -47,72 +91,119 @@ These specs are derived from the simulation and published literature:
 | **T₂\*** | ≥ 1 µs | Required for gain |
 | **Cooperativity** | C > 1 (masing threshold) | Cavity QED |
 | **Optical pump** | 532 nm, 2–4 W CW | Breeze 2018, ISC pathway |
-| **Pump laser** | DPSS or diode, fiber-coupled option | |
 | **Shim coils** | 8 independent gradient coils | Digital twin model |
-| **Controller** | MCU with trained CNN (ONNX-exported) | nv-maser-twin |
-| **DAC resolution** | ≥ 16-bit for current control | Signal chain SNR budget |
-| **ADC resolution** | ≥ 16-bit for field sensing | Signal chain SNR budget |
-| **Thermal budget** | Diamond stays < 400 K under pump | Thermal model |
+| **Maser gain** | ≥ 20 dB (regenerative: 30–60 dB near threshold) | Primary SNR advantage |
+| **Noise temperature** | < 10 K (quantum limit: 0.07 K) | Room-temp quantum amplifier |
+| **Gain bandwidth** | ≥ 50 kHz | Matches NMR readout BW |
+
+### Single-Sided Imaging Magnet Specs
+
+| Parameter | Target | Rationale |
+|---|---|---|
+| **Magnet type** | Sweet-spot barrel (concentric NdFeB rings) | Quasi-homogeneous region for T2 sequences |
+| **B₀ at sweet spot** | 50 mT | Matches proton Larmor ~2.13 MHz |
+| **Sweet spot depth** | 15–25 mm from surface | Clinically useful tissue depth |
+| **Sweet spot size** | ~10 mm dia × 5 mm deep | Uniform region for multi-echo |
+| **Homogeneity in sweet spot** | < 500 ppm | Enables CPMG sequences |
+| **Built-in gradient** | ~5–15 T/m | Depth encoding |
+| **Outer diameter** | ~6–8 cm | Handheld form factor |
+| **Magnet mass** | < 1.0 kg | Weight budget |
+| **Material** | N52 NdFeB | Maximum remanence |
 
 ---
 
 ## Subsystems & Work Packages
 
-### 1. Halbach Permanent Magnet Array
+### 1. NV Maser Module
+
+The maser module is the core technology differentiator — a room-temperature quantum-limited amplifier.
+
+#### 1a. Maser Halbach Permanent Magnet Array
 
 **Goal**: Generate a uniform 50 mT static field across the diamond volume.
 
 - **Design**: K=2 (dipolar) Halbach cylinder, NdFeB N52 segments
 - **Geometry**: 8–16 segments, ~7 mm bore, ~15 mm outer radius
-- **Simulations**: Multipole harmonics from digital twin (`halbach.py`) predict the field distribution
-- **Tolerance**: Magnetization variation < 1% per segment
-- **CAD**: `cad/halbach/`
+- **Isolation**: Mu-metal shield to reject stray field from imaging magnet
+- **Simulations**: Multipole harmonics from digital twin (`halbach.py`)
+- **CAD**: `cad/maser-halbach/`
 - **Status**: 🔲 Not started
 
-### 2. Microwave Cavity
+#### 1b. Microwave Cavity
 
 **Goal**: TE₀₁₁ resonator at ~1.47 GHz with Q ≥ 10,000, optical access.
 
 - **Material**: Oxygen-free copper (OFHC) or sapphire dielectric
-- **Design**: Cylindrical, with optical port (532 nm access) and microwave coupling port
-- **Coupling**: Adjustable loop/probe for critical coupling (β ≈ 0.5)
+- **Design**: Cylindrical, with optical port (532 nm) and microwave coupling port
 - **Q-boost**: Optional electronic feedback loop (Wang 2024 design)
-- **Simulations**: COMSOL or CST for eigenmode analysis (cross-validate with `cavity.py`)
 - **CAD**: `cad/cavity/`
 - **Status**: 🔲 Not started
 
-### 3. Optical Pump System
+#### 1c. Optical Pump System
 
 **Goal**: 532 nm CW laser delivering 2–4 W to the diamond face.
 
-- **Laser**: DPSS 532 nm, TEM₀₀, beam waist ~1.5 mm
-- **Optics**: Focusing lens, optional dichroic mirror for fluorescence monitoring
+- **Laser**: Miniature DPSS 532 nm, fiber-coupled for probe integration
 - **Thermal**: Heat sink for quantum defect (~60% of absorbed power)
-- **Safety**: Laser class 4, interlocks required
+- **Safety**: Fully enclosed in probe housing; interlock switches
 - **BOM**: `bom/optical/`
 - **Status**: 🔲 Not started
 
-### 4. Active Shimming Electronics
+#### 1d. Active Shimming Electronics
 
-**Goal**: 8-channel current driver for gradient shim coils, controlled by trained ML model.
+**Goal**: 8-channel current driver for gradient shim coils on the maser Halbach.
 
 - **MCU**: ESP32-S3 or STM32H7 (runs ONNX-exported CNN at < 1 ms)
 - **DAC**: 16-bit, 8-channel (e.g., AD5668 or DAC8568)
 - **ADC**: 16-bit, for field sensing (e.g., ADS1115 or AD7606)
-- **Current driver**: Low-noise op-amp + MOSFET per coil channel
-- **Interface**: USB/UART to host PC; optional WiFi for remote monitoring
 - **PCB**: `pcb/shimming-controller/`
 - **Firmware**: `firmware/shimming-controller/`
 - **Status**: 🔲 Not started
 
+### 2. Single-Sided Imaging Magnet
+
+**Goal**: Generate a 50 mT sweet-spot field at 20 mm depth outside the probe surface.
+
+- **Design**: Barrel-type concentric NdFeB ring array optimized for sweet spot
+- **Built-in gradient**: ~5-15 T/m provides depth encoding
+- **Optimization**: Digital twin `single_sided_magnet.py` module (to be built)
+- **Delivery**: Custom magnet assembly — 3D-printed alignment jig + commercial N52 magnets
+- **Key challenge**: Magnetic isolation from maser Halbach (distance + mu-metal)
+- **CAD**: `cad/imaging-magnet/`
+- **Status**: 🔲 Not started
+
+### 3. Surface RF Coil & Receive Chain
+
+**Goal**: Transmit RF excitation and receive NMR signals from tissue through probe surface.
+
+- **Coil**: Flat spiral PCB coil, ~30 mm diameter, 5 turns
+- **T/R switch**: PIN diode or MEMS switch (>60 dB isolation)
+- **Up-conversion**: Passive mixer upconverts ~2 MHz NMR signal to 1.47 GHz for maser input
+- **LO source**: DDS or PLL locked to maser carrier frequency
+- **Optional Peltier**: TEC cooler to ~200 K for 1.35× SNR boost
+- **PCB**: `pcb/rf-coil/`
+- **Status**: 🔲 Not started
+
+### 4. Lateral Gradient Coils
+
+**Goal**: Planar gradient coils on the probe face for 2D in-plane spatial encoding.
+
+- **Design**: 2-axis flat gradient coils (Golay-type or planar saddle)
+- **Gradient strength**: ≤ 50 mT/m per axis
+- **Driver**: 3-channel current amplifier (~5A, ~50W per channel)
+- **Location**: Integrated into imaging magnet face or behind RF coil
+- **PCB/wound**: `cad/gradient-coils/`
+- **Status**: 🔲 Not started
+
 ### 5. Signal Chain & Readout
 
-**Goal**: Detect and amplify the ~1.47 GHz maser emission.
+**Goal**: Digitize the maser-amplified NMR signal and stream to tablet.
 
-- **LNA**: Low-noise amplifier (noise figure < 1 dB)
-- **Mixer**: Downconvert to IF or baseband
-- **ADC**: High-speed digitizer for power measurement
-- **SNR budget**: Validated by digital twin `signal_chain.py`
+- **Maser output**: ~1.47 GHz, post-amplification
+- **Down-conversion**: Mixer to baseband (DC – 50 kHz)
+- **ADC**: 16-bit, ≥ 200 kHz sampling
+- **Interface**: USB-C data stream to tablet
+- **Sequence controller**: FPGA or MCU with µs timing precision
 - **Status**: 🔲 Not started
 
 ### 6. NV Diamond
@@ -124,6 +215,17 @@ These specs are derived from the simulation and published literature:
 - **Suppliers**: Element Six, Applied Diamond, Sumitomo, Delaware Diamond Knives
 - **Characterization**: ODMR linewidth → T₂*, PL intensity → NV concentration
 - **Status**: 🔲 Not started — requires sourcing quotes
+
+### 7. Probe Housing & Integration
+
+**Goal**: Package all subsystems into a handheld ergonomic enclosure.
+
+- **Material**: 3D-printed (SLA/MJF) or injection-molded polycarbonate
+- **Thermal management**: Heat sinks for laser and maser, forced air if needed
+- **Ergonomics**: Pistol-grip or transducer-style handle
+- **Cable**: USB-C (power + data), possibly with separate power connector for gradient amps
+- **CAD**: `cad/probe-housing/`
+- **Status**: 🔲 Not started
 
 ---
 
@@ -137,10 +239,15 @@ nv-maser-hardware/
 │   ├── research/           Literature notes, supplier comparisons
 │   └── plans/              Build plans, phase breakdown
 ├── pcb/                    KiCad projects
-│   └── shimming-controller/
+│   ├── shimming-controller/
+│   ├── rf-coil/            Surface coil PCB
+│   └── signal-chain/       Readout electronics
 ├── cad/                    FreeCAD / Fusion 360 / STEP files
-│   ├── halbach/
-│   └── cavity/
+│   ├── maser-halbach/      Maser module Halbach array
+│   ├── imaging-magnet/     Single-sided sweet-spot magnet
+│   ├── cavity/             Microwave cavity
+│   ├── gradient-coils/     Planar lateral gradient coils
+│   └── probe-housing/      Handheld enclosure
 ├── firmware/               MCU firmware (C/C++, PlatformIO)
 │   └── shimming-controller/
 ├── bom/                    Bills of materials (CSV/spreadsheet)
@@ -170,19 +277,20 @@ When hardware measurements are available, the digital twin can be re-trained on 
 
 ---
 
-## Build Phases (Proposed)
+## Build Phases (Revised for Handheld Probe)
 
-| Phase | Scope | Dependencies |
-|---|---|---|
-| **Phase 0: Research** | Literature deep-dive, supplier quotes, component selection | None |
-| **Phase 1: Halbach Array** | Design, order magnets, 3D-print jig, assemble, measure B₀ | Phase 0 |
-| **Phase 2: Shimming Electronics** | PCB design, fabricate, firmware, bench-test coils | Phase 0 |
-| **Phase 3: Microwave Cavity** | Design, machine/print, characterize Q | Phase 1 (need field) |
-| **Phase 4: Optical Pump** | Laser sourcing, optics bench, thermal management | Phase 0 |
-| **Phase 5: Diamond Integration** | Mount diamond in cavity, measure ODMR, verify T₂* | Phases 1-4 |
-| **Phase 6: First Masing** | Assemble everything, attempt maser oscillation | Phase 5 |
-| **Phase 7: Active Shimming** | Deploy ONNX controller, closed-loop field correction | Phase 6 |
-| **Phase 8: Calibration Loop** | Feed measured data back to digital twin, re-train | Phase 7 |
+| Phase | Scope | Deliverable | Dependencies |
+|---|---|---|---|
+| **Phase 0: Research & Simulation** | Literature, sweet-spot magnet optimization in digital twin | Validated magnet design, SNR predictions | None |
+| **Phase 1: Maser Module** | Build NV maser (Halbach + cavity + diamond + laser + shims) | Working maser oscillation at 1.47 GHz | Phase 0 |
+| **Phase 2: Single-Sided Magnet** | Design barrel array, order NdFeB, 3D-print jig, assemble, field-map | Measured sweet-spot at target depth | Phase 0 |
+| **Phase 3: Surface Coil & Receive** | PCB coil, T/R switch, up-conversion mixer, maser integration | NMR signal detected from water phantom | Phases 1, 2 |
+| **Phase 4: First Depth Profile** | Combine all, acquire from layered phantom | 1D T2 depth profile on screen | Phase 3 |
+| **Phase 5: Lateral Gradients** | Planar gradient coils, pulse sequencer | 2D encoded raw k-space data | Phase 4 |
+| **Phase 6: Reconstruction** | NUFFT + compressed sensing on tablet app | First 2D image displayed | Phases 4, 5 |
+| **Phase 7: Probe Integration** | 3D-printed housing, cable, thermal management | Handheld prototype | Phase 6 |
+| **Phase 8: Phantom Validation** | Tissue-mimicking phantoms, SNR/resolution measurements | Validated performance metrics | Phase 7 |
+| **Phase 9: Tissue Imaging** | Ex vivo tissue, then in vivo (forearm skin) | First human tissue image | Phase 8 |
 
 ---
 
@@ -219,6 +327,13 @@ git init  # if starting fresh locally
 - **Jin et al.** (2015), Nat. Commun. 6, 8251 — NV maser concept and diamond cavity QED
 - **Halbach** (1980), NIM 169 — Halbach permanent magnet arrays
 - Various application notes for DAC/ADC selection (TI, Analog Devices)
+
+### Single-Sided NMR/MRI References
+- **Blümich et al.** (2008), Progress in NMR Spectroscopy 52, 197 — NMR-MOUSE review
+- **Casanova et al.** (2011), Single-Sided NMR (Springer) — Comprehensive textbook
+- **Marble et al.** (2007), J. Magn. Reson. 186, 100 — Optimized single-sided magnet for NMR
+- **Cooley et al.** (2021), Sci. Adv. 7, eabf8467 — Portable single-sided MRI
+- **Prado** (2003), J. Magn. Reson. 166, 228 — Sweet-spot magnet design
 
 ---
 
