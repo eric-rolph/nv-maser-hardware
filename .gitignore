@@ -1,0 +1,46 @@
+# ── OS ──
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── KiCad ──
+*.kicad_bak
+*-backups/
+fp-info-cache
+*.kicad_prl
+
+# ── FreeCAD ──
+*.FCStd1
+*.fcstd1
+
+# ── Fusion 360 (local cache) ──
+*.f3d.bak
+
+# ── Build artifacts ──
+# Gerber/drill outputs — commit intentionally per release
+# pcb/*/gerbers/   ← uncomment if you prefer to gitignore fabrication outputs
+
+# ── Firmware ──
+.pio/
+.vscode/.browse.c_cpp.db*
+__pycache__/
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+
+# ── Python helpers ──
+*.pyc
+__pycache__/
+.venv/
+*.egg-info/
+
+# ── Logs ──
+logs/
+*.log
+
+# ── Editor ──
+.vscode/settings.json
+*.swp
+*~
